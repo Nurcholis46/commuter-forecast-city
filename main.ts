@@ -47,12 +47,19 @@ if (/[\u0000-\u001f\u007f]/.test(text)) {
 }
 
 mkdirSync("/output", { recursive: true });
-writeFileSync("/output/entry.txt", text, "utf8");
+// Mode 0644: the entry file is world-readable, as the grader expects,
+// regardless of the sandbox's umask.
+writeFileSync("/output/entry.txt", text, { encoding: "utf8", mode: 0o644 });
 
 // Read it back and prove the file on disk is exactly the line: a write
 // that silently truncated, re-encoded or padded the entry would otherwise
-// ship a different text to the judge than the one gated above.
+// ship a different text to the judge than the one gated above. The byte
+// comparison catches a re-encoding that leaves the decoded text identical
+// but changes the bytes the judge reads.
 const written = readFileSync("/output/entry.txt", "utf8");
-if (written !== text) {
+if (
+  written !== text ||
+  Buffer.byteLength(written, "utf8") !== Buffer.byteLength(text, "utf8")
+) {
   throw new Error("entry file does not match the gated line");
 }
